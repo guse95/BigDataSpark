@@ -1,0 +1,72 @@
+services:
+
+  postgres:
+    image: postgres:17
+    container_name: postgres
+
+    ports:
+      - "5432:5432"
+
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+
+    networks:
+      - bigdata-network
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse
+
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+
+    environment:
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./init/sql/create-clickhouse.sql:/docker-entrypoint-initdb.d/create-clickhouse.sql
+
+    networks:
+      - bigdata-network
+
+  spark:
+    build:
+      context: .
+      dockerfile: init/spark-jobs/Dockerfile
+    container_name: spark
+    command: tail -f /dev/null
+    ports:
+      - "8080:8080"
+
+    env_file:
+      - .env
+
+    environment:
+      SPARK_CLASSPATH: "/opt/spark/jars/postgresql-42.7.3.jar:/opt/spark/jars/clickhouse-jdbc-0.6.2-all.jar"
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+    volumes:
+      - ./init/spark-jobs:/opt/spark_jobs
+    depends_on:
+      - postgres
+      - clickhouse
+    networks:
+      - bigdata-network
+
+volumes:
+  pgdata:
+  clickhouse_data:
+
+networks:
+  bigdata-network:
