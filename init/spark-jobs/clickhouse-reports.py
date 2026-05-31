@@ -4,7 +4,6 @@ import time
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, sum, avg, count, round, year, month, concat_ws
 
-# Читаем переменные окружения
 db_name = os.environ.get("DB_NAME")
 db_user = os.environ.get("DB_USER")
 db_password = os.environ.get("DB_PASSWORD")
@@ -12,10 +11,6 @@ db_password = os.environ.get("DB_PASSWORD")
 clickhouse_db = os.environ.get("CLICKHOUSE_DB")
 clickhouse_user = os.environ.get("CLICKHOUSE_USER")
 clickhouse_password = os.environ.get("CLICKHOUSE_PASSWORD")
-
-print(f"ClickHouse DB: {clickhouse_db}")
-print(f"ClickHouse User: {clickhouse_user}")
-
 
 def get_spark_session():
     return SparkSession.builder \
@@ -36,7 +31,6 @@ def read_from_postgres(spark, table_name):
 
 
 def write_to_clickhouse(df, table_name):
-    # Заменяем null на 0 в числовых полях перед записью
     processed_df = df.fillna(0)
 
     processed_df.write \
@@ -56,16 +50,13 @@ def write_to_clickhouse(df, table_name):
 def create_reports():
     spark = get_spark_session()
 
-    # 1. Чтение данных
     sales = read_from_postgres(spark, "sales")
     customers = read_from_postgres(spark, "customers")
     products = read_from_postgres(spark, "products")
     stores = read_from_postgres(spark, "stores")
     suppliers = read_from_postgres(spark, "suppliers")
 
-    # 2. Расчет отчетов и их запись
 
-    # REPORT 1: PRODUCT SALES
     product_sales = sales.join(
         products,
         sales.product_id == products.id
@@ -87,7 +78,6 @@ def create_reports():
     )
     write_to_clickhouse(product_sales, "report_product_sales")
 
-    # REPORT 2: CUSTOMER SALES
     customer_sales = sales.join(
         customers,
         sales.customer_id == customers.id
@@ -108,7 +98,6 @@ def create_reports():
     )
     write_to_clickhouse(customer_sales, "report_customer_sales")
 
-    # REPORT 3: TIME SALES
     time_sales = sales \
         .withColumn("year", year("date")) \
         .withColumn("month", month("date")) \
@@ -120,7 +109,6 @@ def create_reports():
     )
     write_to_clickhouse(time_sales, "report_time_sales")
 
-    # REPORT 4: STORE SALES
     store_sales = sales.join(
         stores,
         sales.store_id == stores.id
@@ -142,7 +130,6 @@ def create_reports():
     )
     write_to_clickhouse(store_sales, "report_store_sales")
 
-    # REPORT 5: SUPPLIER SALES
     supplier_sales = sales \
         .join(products, sales.product_id == products.id) \
         .join(suppliers, products.supplier_id == suppliers.id) \
@@ -161,7 +148,6 @@ def create_reports():
     )
     write_to_clickhouse(supplier_sales, "report_supplier_sales")
 
-    # REPORT 6: PRODUCT QUALITY
     product_quality = sales \
         .join(products, sales.product_id == products.id) \
         .groupBy(products.name) \

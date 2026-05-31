@@ -3,7 +3,6 @@ import os
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, to_date
 
-# Читаем переменные окружения для Postgres
 db_name = os.environ.get("DB_NAME")
 db_user = os.environ.get("DB_USER")
 db_password = os.environ.get("DB_PASSWORD")
@@ -11,7 +10,6 @@ db_password = os.environ.get("DB_PASSWORD")
 JDBC_URL = f"jdbc:postgresql://postgres:5432/{db_name}"
 
 def get_spark_session():
-    # Автоматически подтягиваем JAR-пакет для Postgres, как в рабочем примере
     return SparkSession.builder \
         .appName("PetShop_ETL") \
         .config("spark.jars.packages", "org.postgresql:postgresql:42.6.0") \
@@ -42,10 +40,8 @@ def write_to_postgres(df, table_name):
 def run_etl():
     spark = get_spark_session()
 
-    # 1. Читаем сырые данные из mock_data
     df = read_from_postgres(spark, "mock_data")
 
-    # 2. Обработка и запись CUSTOMERS
     customers = df.select(
         col("customer_first_name").alias("first_name"),
         col("customer_last_name").alias("last_name"),
@@ -59,7 +55,6 @@ def run_etl():
     ).dropDuplicates(["email"])
     write_to_postgres(customers, "customers")
 
-    # 3. Обработка и запись SELLERS
     sellers = df.select(
         col("seller_first_name").alias("first_name"),
         col("seller_last_name").alias("last_name"),
@@ -69,7 +64,6 @@ def run_etl():
     ).dropDuplicates(["email"])
     write_to_postgres(sellers, "sellers")
 
-    # 4. Обработка и запись SUPPLIERS
     suppliers = df.select(
         col("supplier_name").alias("name"),
         col("supplier_contact").alias("contact"),
@@ -81,7 +75,6 @@ def run_etl():
     ).dropDuplicates(["email"])
     write_to_postgres(suppliers, "suppliers")
 
-    # 5. Обработка и запись STORES
     stores = df.select(
         col("store_name").alias("name"),
         col("store_state").alias("state"),
@@ -93,13 +86,11 @@ def run_etl():
     ).dropDuplicates(["email"])
     write_to_postgres(stores, "stores")
 
-    # 6. Читаем сохраненные справочники из БД для получения сгенерированных id
     customers_db = read_from_postgres(spark, "customers")
     sellers_db = read_from_postgres(spark, "sellers")
     suppliers_db = read_from_postgres(spark, "suppliers")
     stores_db = read_from_postgres(spark, "stores")
 
-    # 7. Обработка и запись PRODUCTS
     products = df.join(
         suppliers_db,
         df.supplier_email == suppliers_db.email
@@ -125,10 +116,8 @@ def run_etl():
     ])
     write_to_postgres(products, "products")
 
-    # 8. Перечитываем продукты из БД для получения их id
     products_db = read_from_postgres(spark, "products")
 
-    # 9. Обработка и запись SALES (Финальная таблица фактов)
     sales = df \
         .join(customers_db, df.customer_email == customers_db.email) \
         .join(sellers_db, df.seller_email == sellers_db.email) \
